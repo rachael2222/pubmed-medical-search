@@ -50,6 +50,7 @@ st.markdown("""
 st.markdown('<h1 class="main-header">🏥 PubMed 의료 검색 앱</h1>', unsafe_allow_html=True)
 
 # 서비스 초기화
+@st.cache_resource
 def init_service():
     return MedicalSearchService()
 
@@ -62,7 +63,6 @@ if 'search_results' not in st.session_state:
 if 'search_query' not in st.session_state:
     st.session_state.search_query = ""
 
-# show_abstracts 세션 상태 초기화 추가
 if 'show_abstracts' not in st.session_state:
     st.session_state.show_abstracts = {}
 
@@ -73,15 +73,17 @@ if 'openai_api_key' not in st.session_state:
 with st.sidebar:
     st.header("⚙️ 설정")
     
-    # OpenAI API 키 입력
+    # OpenAI API 키 입력 (key 매개변수 추가)
     api_key_input = st.text_input(
         "🔑 OpenAI API 키 (선택사항)",
         type="password",
+        key="openai_api_key_input",
         help="AI 요약 기능을 사용하려면 OpenAI API 키를 입력하세요"
     )
     
     if api_key_input:
         os.environ['OPENAI_API_KEY'] = api_key_input
+        st.session_state.openai_api_key = api_key_input
         st.success("✅ API 키가 설정되었습니다")
     
     st.markdown("---")
@@ -121,7 +123,8 @@ with col1:
     search_query = st.text_input(
         "🔍 질병명, 증상, 검사 수치를 입력하세요:",
         value=st.session_state.get('search_query', ''),
-        placeholder="예: CRP 수치 12.5, HbA1c 7.8 당뇨병, 혈압 180/120 등"
+        placeholder="예: CRP 수치 12.5, HbA1c 7.8 당뇨병, 혈압 180/120 등",
+        key="main_search_input"
     )
 
 with col2:
@@ -131,8 +134,8 @@ with col2:
 if search_button and search_query:
     with st.spinner('논문을 검색하고 분석 중입니다... ⏳'):
         try:
-            # 검색 실행
-            results = service.search_medical_papers(search_query, max_papers)
+            # 검색 실행 - 올바른 매개변수명 사용
+            results = service.search_medical_papers(search_query, max_results=max_papers)
             
             # 결과 저장 (세션 상태)
             st.session_state.search_results = results
@@ -198,7 +201,7 @@ if st.session_state.search_results:
                     st.markdown("**🤖 AI 요약**")
                     st.markdown(f"> {paper['ai_summary']}")
                 
-                # 초록 보기 토글
+                # 초록 보기 토글 (nested expander 문제 해결)
                 if paper.get('abstract'):
                     abstract_key = f"show_abstract_{i}"
                     if abstract_key not in st.session_state.show_abstracts:
@@ -215,6 +218,7 @@ if st.session_state.search_results:
                             pubmed_url = f"https://pubmed.ncbi.nlm.nih.gov/{paper['pmid']}"
                             st.markdown(f"🔗 [PubMed에서 보기]({pubmed_url})")
                     
+                    # expander 대신 조건부 표시로 변경
                     if st.session_state.show_abstracts[abstract_key]:
                         st.markdown("**원본 초록:**")
                         st.markdown(f"<div style='background-color: #f8f9fa; padding: 15px; border-radius: 5px; border-left: 4px solid #007bff;'>{paper['abstract']}</div>", 
@@ -226,7 +230,8 @@ if st.session_state.search_results:
         st.warning("❌ 검색 조건에 맞는 논문을 찾을 수 없습니다.")
         st.info("다른 키워드로 검색해보세요.")
 
-# 사용법 안내
+# 사용법 안내 (expander를 메인 결과 표시 바깥으로 이동)
+st.markdown("---")
 with st.expander("📖 사용법 안내"):
     st.markdown("""
     ### 🔍 검색 방법
@@ -255,7 +260,7 @@ st.markdown(
 # 사이드바 하단 (간소화)
 with st.sidebar:
     st.markdown("---")
-    if st.button("🔄 결과 초기화", use_container_width=True):
+    if st.button("🔄 결과 초기화", use_container_width=True, key="clear_results_btn"):
         if 'search_results' in st.session_state:
             del st.session_state.search_results
         if 'search_query' in st.session_state:
