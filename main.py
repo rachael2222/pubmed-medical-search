@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
 from medical_search_service import MedicalSearchService
@@ -230,15 +230,6 @@ async def get_stats():
             "건강 팁 제공"
         ]
     }
-
-# 예외 처리
-@app.exception_handler(404)
-async def not_found_handler(request, exc):
-    return {"error": "요청한 리소스를 찾을 수 없습니다.", "status_code": 404}
-
-@app.exception_handler(500)
-async def internal_error_handler(request, exc):
-    return {"error": "서버 내부 오류가 발생했습니다.", "status_code": 500}
 
 if __name__ == "__main__":
     uvicorn.run(
